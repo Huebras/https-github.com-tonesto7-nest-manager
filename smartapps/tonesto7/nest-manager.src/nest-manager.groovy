@@ -36,8 +36,8 @@ definition(
 
 include 'asynchttp_v1'
 
-def appVersion() { "5.1.4" }
-def appVerDate() { "6-17-2017" }
+def appVersion() { "5.1.5" }
+def appVerDate() { "6-19-2017" }
 def minVersions() {
 	return [
 		"automation":["val":513, "desc":"5.1.3"],
@@ -1891,9 +1891,11 @@ def getWeatherConfDesc() {
 
 def getCustWeatherLoc(desc=false) {
 	def res = null
-	if(settings?.custWeatherLocSrch == true) {
-		if(settings?.custWeatherResultItems != null) {
-			res = desc ? (settings?.custWeatherResultItems[0]?.split("\\:"))[1].split("\\.")[0] : settings?.custWeatherResultItems[0].toString()
+	if(settings?.useCustWeatherLoc) {
+		if(settings?.custWeatherLocSrch == true) {
+			if(settings?.custWeatherResultItems != null) {
+				res = desc ? (settings?.custWeatherResultItems[0]?.split("\\:"))[1].split("\\.")[0] : settings?.custWeatherResultItems[0].toString()
+			}
 		} else if(settings?.custLocStr != null) {
 			res = settings?.custLocStr
 		}
@@ -6022,7 +6024,8 @@ def getDefaultLabel(ttype, name) {
 			if(atomicState?.devNameOverride && atomicState?.useAltNames) { defName = "${location.name}${devt} - Nest Presence Device" }
 			break
 		case "weather":
-			def wLbl = getCustWeatherLoc() ? getCustWeatherLoc().toString() : "${getStZipCode()}"
+			def defZip = getStZipCode() ? getStZipCode() : getNestZipCode()
+			def wLbl = getCustWeatherLoc() ? getCustWeatherLoc().toString() : "${defZip}"
 			defName = "Nest Weather${devt} (${wLbl})"
 			if(atomicState?.devNameOverride && atomicState?.useAltNames) { defName = "${location.name}${devt} - Nest Weather Device" }
 			break
