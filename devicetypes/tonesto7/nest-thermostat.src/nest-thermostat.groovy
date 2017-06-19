@@ -13,7 +13,7 @@
 import java.text.SimpleDateFormat
 import groovy.time.*
 
-def devVer() { return "5.1.0" }
+def devVer() { return "5.1.2" }
 
 // for the UI
 metadata {
@@ -418,12 +418,12 @@ def parse(String description) {
 	LogAction("Parsing '${description}'")
 }
 
-def poll() {
+void poll() {
 	Logger("Polling parent...")
-	poll()
+	refresh()
 }
 
-def refresh() {
+void refresh() {
 	pauseEvent("false")
 	parent.refresh(this)
 }
@@ -671,7 +671,7 @@ def isCodeUpdateAvailable(newVer, curVer) {
 	return result
 }
 
-def ecoDesc(val) {
+void ecoDesc(val) {
 	ecoDescEvent(val)
 }
 
@@ -874,7 +874,7 @@ def temperatureEvent(Double tempVal) {
 	def temp = device.currentState("temperature")?.stringValue
 	def rTempVal = wantMetric() ? tempVal.round(1) : tempVal.round(0).toInteger()
 	if(isStateChange(device, "temperature", rTempVal.toString())) {
-		Logger("UPDATED | Temperature is (${rTempVal}${tUnitStr()}) | Original Temp: (${temp}${tUnitStr()})")
+		LogAction("UPDATED | Temperature is (${rTempVal}${tUnitStr()}) | Original Temp: (${temp}${tUnitStr()})")
 		sendEvent(name:'temperature', value: rTempVal, unit: state?.tempUnit, descriptionText: "Ambient Temperature is ${rTempVal}${tUnitStr()}", displayed: true, isStateChange: true)
 	} else { LogAction("Temperature is (${rTempVal}${tUnitStr()}) | Original Temp: (${temp})${tUnitStr()}") }
 	checkSafetyTemps()
@@ -953,7 +953,7 @@ def hasLeafEvent(Boolean hasLeaf) {
 	def lf = hasLeaf ? "On" : "Off"
 	state?.hasLeaf = hasLeaf
 	if(isStateChange(device, "hasLeaf", lf.toString())) {
-		Logger("UPDATED | Leaf is set to (${lf}) | Original State: (${leaf})")
+		LogAction("UPDATED | Leaf is set to (${lf}) | Original State: (${leaf})")
 		sendEvent(name:'hasLeaf', value: lf,  descriptionText: "Leaf: ${lf}", displayed: false, isStateChange: true, state: lf)
 	} else { LogAction("Leaf is set to (${lf}) | Original State: (${leaf})") }
 }
@@ -961,7 +961,7 @@ def hasLeafEvent(Boolean hasLeaf) {
 def humidityEvent(humidity) {
 	def hum = device.currentState("humidity")?.value
 	if(isStateChange(device, "humidity", humidity.toString())) {
-		Logger("UPDATED | Humidity is (${humidity}) | Original State: (${hum})")
+		LogAction("UPDATED | Humidity is (${humidity}) | Original State: (${hum})")
 		sendEvent(name:'humidity', value: humidity, unit: "%", descriptionText: "Humidity is ${humidity}", displayed: false, isStateChange: true)
 	} else { LogAction("Humidity is (${humidity}) | Original State: (${hum})") }
 }
@@ -981,7 +981,7 @@ def presenceEvent(presence) {
 	} else { LogAction("Presence - Present: (${pres}) | Original State: (${val}) | State Variable: ${state?.present}") }
 }
 
-def whoMadeChanges(autoType, desc, dt) {
+void whoMadeChanges(autoType, desc, dt) {
 	// log.debug "whoMadeChanges: $autoType: $desc | dt: $dt"
 	def curType = device?.currentState("whoMadeChanges")?.value
 	def curDesc = device?.currentState("whoMadeChangesDesc")?.value
@@ -1075,7 +1075,7 @@ def operatingStateEvent(opState=null) {
 	}
 
 	if(isStateChange(device, "nestThermostatOperatingState", operState.toString())) {
-		Logger("UPDATED | nestOperatingState is (${operState.toString().capitalize()}) | Original State: (${nesthvacState.toString().capitalize()})")
+		LogAction("UPDATED | nestOperatingState is (${operState.toString().capitalize()}) | Original State: (${nesthvacState.toString().capitalize()})")
 		sendEvent(name: 'nestThermostatOperatingState', value: operState, descriptionText: "Device is ${operState}")
 	} else {
 		LogAction("nestOperatingState is (${operState}) | Original State: (${nesthvacState})")
@@ -1083,7 +1083,7 @@ def operatingStateEvent(opState=null) {
 
 	def hvacState = device.currentState("thermostatOperatingState")?.stringValue
 	if(isStateChange(device, "thermostatOperatingState", newoperState.toString())) {
-		Logger("UPDATED | OperatingState is (${newoperState.toString().capitalize()}) | Original State: (${hvacState.toString().capitalize()})")
+		LogAction("UPDATED | OperatingState is (${newoperState.toString().capitalize()}) | Original State: (${hvacState.toString().capitalize()})")
 		sendEvent(name: 'thermostatOperatingState', value: newoperState, descriptionText: "Device is ${newoperState}", displayed: true, isStateChange: true)
 	} else {
 		LogAction("OperatingState is (${newoperState}) | Original State: (${hvacState})")
@@ -1855,7 +1855,7 @@ def getHvacModes() {
 	return modesList
 }
 
-def changeMode() {
+void changeMode() {
 	//LogAction("changeMode..")
 	def currentMode = getHvacMode()
 	def lastTriedMode = currentMode ?: "off"

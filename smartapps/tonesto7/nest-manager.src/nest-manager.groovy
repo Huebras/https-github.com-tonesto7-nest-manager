@@ -36,16 +36,16 @@ definition(
 
 include 'asynchttp_v1'
 
-def appVersion() { "5.1.2" }
-def appVerDate() { "6-12-2017" }
+def appVersion() { "5.1.5" }
+def appVerDate() { "6-19-2017" }
 def minVersions() {
 	return [
-		"automation":["val":512, "desc":"5.1.2"],
-		"thermostat":["val":510, "desc":"5.1.0"],
-		"protect":["val":510, "desc":"5.1.0"],
-		"presence":["val":510, "desc":"5.1.0"],
-		"weather":["val":510, "desc":"5.1.0"],
-		"camera":["val":510, "desc":"5.1.0"],
+		"automation":["val":513, "desc":"5.1.3"],
+		"thermostat":["val":512, "desc":"5.1.2"],
+		"protect":["val":511, "desc":"5.1.1"],
+		"presence":["val":511, "desc":"5.1.1"],
+		"weather":["val":511, "desc":"5.1.1"],
+		"camera":["val":511, "desc":"5.1.1"],
 		"stream":["val":100, "desc":"1.0.0"]
 	]
 }
@@ -1891,9 +1891,11 @@ def getWeatherConfDesc() {
 
 def getCustWeatherLoc(desc=false) {
 	def res = null
-	if(settings?.custWeatherLocSrch == true) {
-		if(settings?.custWeatherResultItems != null) {
-			res = desc ? (settings?.custWeatherResultItems[0]?.split("\\:"))[1].split("\\.")[0] : settings?.custWeatherResultItems[0].toString()
+	if(settings?.useCustWeatherLoc) {
+		if(settings?.custWeatherLocSrch == true) {
+			if(settings?.custWeatherResultItems != null) {
+				res = desc ? (settings?.custWeatherResultItems[0]?.split("\\:"))[1].split("\\.")[0] : settings?.custWeatherResultItems[0].toString()
+			}
 		} else if(settings?.custLocStr != null) {
 			res = settings?.custLocStr
 		}
@@ -3251,7 +3253,7 @@ def getApiData(type = null) {
 					incApiStrReqCnt()
 				} else {
 					LogAction("getApiStructureData - Received: Resp (${resp?.status})", "error", true)
-					apiRespHandler(resp?.status, resp?.data, "getApiData(str)")
+					apiRespHandler(resp?.status, resp?.data, "getApiData(str)", "structure poll")
 				}
 			}
 		}
@@ -3269,7 +3271,7 @@ def getApiData(type = null) {
 					incApiDevReqCnt()
 				} else {
 					LogAction("getApiDeviceData - Received Resp (${resp?.status})", "error", true)
-					apiRespHandler(resp?.status, resp?.data, "getApiData(dev)")
+					apiRespHandler(resp?.status, resp?.data, "getApiData(dev)", "device poll")
 				}
 			}
 		}
@@ -3286,7 +3288,7 @@ def getApiData(type = null) {
 					incApiMetaReqCnt()
 				} else {
 					LogAction("getApiMetaData - Received Resp (${resp?.status})", "error", true)
-					apiRespHandler(resp?.status, resp?.data, "getApiData(meta)")
+					apiRespHandler(resp?.status, resp?.data, "getApiData(meta)", "metadata poll")
 				}
 			}
 		}
@@ -3296,7 +3298,7 @@ def getApiData(type = null) {
 		atomicState.forceChildUpd = true
 		if(ex instanceof groovyx.net.http.HttpResponseException) {
 			if(ex?.response) {
-				apiRespHandler(ex?.response?.status, ex?.response?.data, "getApiData(ex catch)")
+				apiRespHandler(ex?.response?.status, ex?.response?.data, "getApiData(ex catch)", "sync poll")
 			}
 		} else {
 			log.error "getApiData (type: $type) Exception:", ex
@@ -3401,12 +3403,13 @@ def procNestResponse(resp, data) {
 			}
 		} else {
 			def tstr = (type == "str") ? "Structure" : ((type == "dev") ? "Device" : "Metadata")
-			//LogAction("procNestResponse - Received $tstr poll: Resp (${resp?.status})", "error", true)
+			tstr += " Poll async"
+			//LogAction("procNestResponse - Received $tstr: Resp (${resp?.status})", "error", true)
 			if(resp?.hasError()) {
 				def rCode = resp?.getStatus() ?: null
 				def errJson = resp?.getErrorJson() ?: null
 				//log.debug "rCode: $rCode | errJson: $errJson"
-				apiRespHandler(rCode, errJson, "procNestResponse($type)")
+				apiRespHandler(rCode, errJson, "procNestResponse($type)", tstr)
 			}
 			apiIssueEvent(true)
 			atomicState.forceChildUpd = true
@@ -4907,7 +4910,7 @@ def procNestApiCmd(uri, typeId, type, obj, objVal, qnum, redir = false) {
 	return result
 }
 
-def apiRespHandler(code, errJson, methodName) {
+def apiRespHandler(code, errJson, methodName, tstr=null) {
 	LogAction("[$methodName] | Status: (${code}) | Error Message: ${errJson}", "warn", true)
 	if (!(code?.toInteger() in [200, 307])) {
 		def result = ""
@@ -4940,7 +4943,7 @@ def apiRespHandler(code, errJson, methodName) {
 		}
 		def failData = ["code":code, "msg":result, "method":methodName, "dt":getDtNow()]
 		atomicState?.apiCmdFailData = failData
-		failedCmdNotify(failData)
+		failedCmdNotify(failData, tstr)
 		LogAction("$methodName error - (Status: $code - $result) - [ErrorLink: ${errJson?.type}]", "error", true)
 	}
 }
@@ -5056,12 +5059,13 @@ def apiIssueNotify(msgOn, rateOn, wait) {
 	}
 }
 
-def failedCmdNotify(failData) {
+def failedCmdNotify(failData, tstr) {
 	if(!getOk2Notify() || !(getLastFailedCmdMsgSec() > 300)) { return }
 	def nPrefs = atomicState?.notificationPrefs
 	def cmdFail = (nPrefs?.app?.api?.cmdFailMsg && failData?.msg != null) ? true : false
 	if(cmdFail) {
-		def msg = "\nThe (${atomicState?.lastCmdSent}) CMD sent to the API has failed.\nStatus Code: ${failData?.code}\nErrorMsg: ${failData?.msg}\nDT: ${failData?.dt}"
+		def cmdstr = tstr ?: atomicState?.lastCmdSent
+		def msg = "\nThe (${cmdstr}) CMD sent to the API has failed.\nStatus Code: ${failData?.code}\nErrorMsg: ${failData?.msg}\nDT: ${failData?.dt}"
 		sendMsg("${app?.name} API CMD Failed", msg)
 		atomicState?.lastFailedCmdMsgDt = getDtNow()
 	}
@@ -6020,7 +6024,8 @@ def getDefaultLabel(ttype, name) {
 			if(atomicState?.devNameOverride && atomicState?.useAltNames) { defName = "${location.name}${devt} - Nest Presence Device" }
 			break
 		case "weather":
-			def wLbl = getCustWeatherLoc() ? getCustWeatherLoc().toString() : "${getStZipCode()}"
+			def defZip = getStZipCode() ? getStZipCode() : getNestZipCode()
+			def wLbl = getCustWeatherLoc() ? getCustWeatherLoc().toString() : "${defZip}"
 			defName = "Nest Weather${devt} (${wLbl})"
 			if(atomicState?.devNameOverride && atomicState?.useAltNames) { defName = "${location.name}${devt} - Nest Weather Device" }
 			break
