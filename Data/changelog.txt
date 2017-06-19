@@ -1,3 +1,8 @@
+V5.1.5 (June 19th, 2017):
+▔▔▔▔▔▔▔▔▔▔▔
+Manager App:
+ • FIXED: Custom weather settings proper display
+
 V5.1.3 (June 14th, 2017):
 ▔▔▔▔▔▔▔▔▔▔▔
 Manager App:
